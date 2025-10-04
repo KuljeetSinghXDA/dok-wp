@@ -8,7 +8,7 @@ services:
     container_name: wordpress_nginx
     restart: unless-stopped
     volumes:
-      -./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - wordpress_data:/var/www/html:ro
     depends_on:
       - wordpress
@@ -43,7 +43,7 @@ services:
       AUTOMATIC_UPDATER_DISABLED: true
     volumes:
       - wordpress_data:/var/www/html
-      -./uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
+      - ./uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
     networks:
       - dokploy-network
     depends_on:
@@ -61,7 +61,7 @@ services:
       MARIADB_PASSWORD: ${DB_PASSWORD}
     volumes:
       - mariadb_data:/var/lib/mysql
-      -./low-memory.cnf:/etc/mysql/conf.d/low-memory.cnf:ro
+      - ./low-memory.cnf:/etc/mysql/conf.d/low-memory.cnf:ro
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     networks:
       - dokploy-network
@@ -73,4 +73,5 @@ networks:
 
 volumes:
   wordpress_data:
+
   mariadb_data:
