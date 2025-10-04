@@ -1,26 +1,17 @@
 [mysqld]
-# Connections and packets
 max_connections = 50
 max_allowed_packet = 64M
 skip_name_resolve = ON
-
-# InnoDB (lean)
 innodb_buffer_pool_size = 64M
 innodb_log_file_size     = 64M
 innodb_flush_method      = O_DIRECT
 innodb_flush_log_at_trx_commit = 2
 innodb_file_per_table    = 1
-
-# Caches
 table_open_cache = 2048
 tmp_table_size = 64M
 max_heap_table_size = 64M
-
-# Charset
 character-set-server = utf8mb4
 collation-server      = utf8mb4_unicode_ci
-
-# Disable legacy query cache and overhead
 query_cache_type = 0
 query_cache_size = 0
 performance_schema = OFF

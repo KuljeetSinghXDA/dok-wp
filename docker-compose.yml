@@ -3,7 +3,6 @@ version: '3.8'
 services:
   mariadb:
     image: mariadb:11.8.3
-    container_name: wp-db
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
@@ -21,7 +20,6 @@ services:
 
   redis:
     image: redis:8.2.1-alpine
-    container_name: wp-redis
     restart: unless-stopped
     command: >
       redis-server
@@ -38,7 +36,6 @@ services:
 
   wordpress:
     image: wordpress:6.8.3-php8.4-fpm-alpine
-    container_name: wp-fpm
     restart: unless-stopped
     environment:
       WORDPRESS_DB_HOST: mariadb:3306
@@ -73,7 +70,6 @@ services:
 
   nginx:
     image: nginx:1.28.0-alpine
-    container_name: wp-nginx
     restart: unless-stopped
     volumes:
       - wp_data:/var/www/html:ro
