@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   nginx:
     image: nginx:1.28.0-alpine
     restart: unless-stopped
     ports:
-      - 'dokploy-port-80:80'
+      - '80' # Corrected line
     volumes:
       - wordpress_data:/var/www/html:ro
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
