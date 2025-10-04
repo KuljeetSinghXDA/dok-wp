@@ -1,0 +1,76 @@
+
+version: '3.8'
+
+services:
+  # Service 1: Nginx Web Server (Public-Facing Entrypoint)
+  nginx:
+    image: nginx:alpine
+    container_name: wordpress_nginx
+    restart: unless-stopped
+    volumes:
+      -./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - wordpress_data:/var/www/html:ro
+    depends_on:
+      - wordpress
+    networks:
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wordpress-http.rule=Host(`${WP_DOMAIN}`)"
+      - "traefik.http.routers.wordpress-http.entrypoints=web"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.wordpress-http.middlewares=redirect-to-https"
+      - "traefik.http.routers.wordpress-https.rule=Host(`${WP_DOMAIN}`)"
+      - "traefik.http.routers.wordpress-https.entrypoints=websecure"
+      - "traefik.http.routers.wordpress-https.tls=true"
+      - "traefik.http.routers.wordpress-https.tls.certresolver=letsencrypt"
+      - "traefik.http.services.wordpress.loadbalancer.server.port=80"
+      - "traefik.docker.network=dokploy-network"
+
+  # Service 2: WordPress Application Server (PHP-FPM)
+  wordpress:
+    image: wordpress:php8.4-fpm-alpine
+    container_name: wordpress_app
+    restart: unless-stopped
+    environment:
+      WORDPRESS_DB_HOST: mariadb:3306
+      WORDPRESS_DB_USER: ${DB_USER}
+      WORDPRESS_DB_PASSWORD: ${DB_PASSWORD}
+      WORDPRESS_DB_NAME: ${DB_NAME}
+      WORDPRESS_TABLE_PREFIX: wp_
+      # Disable WordPress auto-updates to maintain a declarative state
+      WP_AUTO_UPDATE_CORE: false
+      AUTOMATIC_UPDATER_DISABLED: true
+    volumes:
+      - wordpress_data:/var/www/html
+      -./uploads.ini:/usr/local/etc/php/conf.d/uploads.ini:ro
+    networks:
+      - dokploy-network
+    depends_on:
+      - mariadb
+
+  # Service 3: MariaDB Database Server
+  mariadb:
+    image: mariadb:11.8.3
+    container_name: wordpress_db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      -./low-memory.cnf:/etc/mysql/conf.d/low-memory.cnf:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - dokploy-network
+
+# Top-Level Definitions for Networks and Volumes
+networks:
+  dokploy-network:
+    external: true
+
+volumes:
+  wordpress_data:
+  mariadb_data:
