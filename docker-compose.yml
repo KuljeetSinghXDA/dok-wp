@@ -10,13 +10,14 @@ services:
       MYSQL_USER: ${DB_USER:-wordpress}
       MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      -../files/wp-db:/var/lib/mysql
-      -./mariadb/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
+      - ../files/wp-db:/var/lib/mysql
+      - ./mariadb/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
     healthcheck:
-      test:
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p${DB_ROOT_PASSWORD} || exit 1"]
+      interval: 20s
+      timeout: 10s
       retries: 5
+      start_period: 40s
     networks:
       - dokploy-network
 
@@ -31,8 +32,8 @@ services:
       --maxmemory-policy allkeys-lru
       --requirepass ${REDIS_PASSWORD}
     healthcheck:
-      test:
-      interval: 10s
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 20s
       timeout: 5s
       retries: 5
     networks:
@@ -60,17 +61,18 @@ services:
         define('WP_REDIS_READ_TIMEOUT', 1);
         define('WP_REDIS_DATABASE', 0);
     volumes:
-      -../files/wp-data:/var/www/html
-      -./php/php.ini:/usr/local/etc/php/conf.d/zz-custom.ini:ro
-      -./php-fpm/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
+      - ../files/wp-data:/var/www/html
+      - ./php/php.ini:/usr/local/etc/php/conf.d/zz-custom.ini:ro
+      - ./php-fpm/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
     depends_on:
       - mariadb
       - redis
     healthcheck:
-      test:
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
+      interval: 30s
+      timeout: 10s
       retries: 5
+      start_period: 40s
     networks:
       - dokploy-network
 
@@ -78,9 +80,9 @@ services:
     image: nginx:1.28.0-alpine
     restart: unless-stopped
     volumes:
-      -../files/wp-data:/var/www/html:ro
-      -./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      -../files/nginx-cache:/var/cache/nginx
+      - ../files/wp-data:/var/www/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../files/nginx-cache:/var/cache/nginx
     depends_on:
       - wordpress
     expose:
@@ -92,9 +94,9 @@ services:
       - "traefik.http.routers.wordpress-router.tls.certresolver=letsencrypt"
       - "traefik.http.services.wordpress-service.loadbalancer.server.port=80"
     healthcheck:
-      test:
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
+      interval: 30s
+      timeout: 10s
       retries: 5
     networks:
       - dokploy-network
