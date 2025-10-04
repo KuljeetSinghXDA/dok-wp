@@ -1,54 +1,34 @@
 version: '3.8'
 
 services:
-  mariadb:
-    image: mariadb:11.8.3
+  nginx:
+    image: nginx:1.28.0-alpine
     restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME:-wordpress}
-      MYSQL_USER: ${DB_USER:-wordpress}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - 'dokploy-port-80:80'
     volumes:
-      - ../files/wp-db:/var/lib/mysql
-      - ./mariadb/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
+      - wordpress_data:/var/www/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_cache:/var/cache/nginx
+    depends_on:
+      - wordpress
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p${DB_ROOT_PASSWORD} || exit 1"]
-      interval: 20s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    networks:
-      - dokploy-network
-
-  redis:
-    image: redis:8.2.1-alpine
-    restart: unless-stopped
-    command: >
-      redis-server
-      --appendonly no
-      --save ""
-      --maxmemory 32mb
-      --maxmemory-policy allkeys-lru
-      --requirepass ${REDIS_PASSWORD}
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 20s
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - dokploy-network
 
   wordpress:
     image: wordpress:6.8.3-php8.4-fpm-alpine
     restart: unless-stopped
     environment:
       WORDPRESS_DB_HOST: mariadb:3306
-      WORDPRESS_DB_NAME: ${DB_NAME:-wordpress}
-      WORDPRESS_DB_USER: ${DB_USER:-wordpress}
-      WORDPRESS_DB_PASSWORD: ${DB_PASSWORD}
-      WORDPRESS_TABLE_PREFIX: ${TABLE_PREFIX:-wp_}
-      WORDPRESS_DEBUG: ${WP_DEBUG:-false}
+      WORDPRESS_DB_NAME: '{{DOKPLOY_DB_NAME}}'
+      WORDPRESS_DB_USER: '{{DOKPLOY_DB_USER}}'
+      WORDPRESS_DB_PASSWORD: '{{DOKPLOY_DB_PASSWORD}}'
+      WORDPRESS_TABLE_PREFIX: '{{DOKPLOY_TABLE_PREFIX}}'
+      WORDPRESS_DEBUG: '{{DOKPLOY_WP_DEBUG}}'
+      REDIS_PASSWORD: '{{DOKPLOY_REDIS_PASSWORD}}'
       WORDPRESS_CONFIG_EXTRA: |
         define('DISABLE_WP_CRON', true);
         define('WP_MEMORY_LIMIT', '64M');
@@ -61,46 +41,52 @@ services:
         define('WP_REDIS_READ_TIMEOUT', 1);
         define('WP_REDIS_DATABASE', 0);
     volumes:
-      - ../files/wp-data:/var/www/html
+      - wordpress_data:/var/www/html
       - ./php/php.ini:/usr/local/etc/php/conf.d/zz-custom.ini:ro
       - ./php-fpm/www.conf:/usr/local/etc/php-fpm.d/www.conf:ro
     depends_on:
       - mariadb
       - redis
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "php -v >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
       retries: 5
-      start_period: 40s
-    networks:
-      - dokploy-network
 
-  nginx:
-    image: nginx:1.28.0-alpine
+  mariadb:
+    image: mariadb:11.8.3
     restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: '{{DOKPLOY_DB_ROOT_PASSWORD}}'
+      MYSQL_DATABASE: '{{DOKPLOY_DB_NAME}}'
+      MYSQL_USER: '{{DOKPLOY_DB_USER}}'
+      MYSQL_PASSWORD: '{{DOKPLOY_DB_PASSWORD}}'
     volumes:
-      - ../files/wp-data:/var/www/html:ro
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ../files/nginx-cache:/var/cache/nginx
-    depends_on:
-      - wordpress
-    expose:
-      - "80"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.wordpress-router.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.wordpress-router.entrypoints=websecure"
-      - "traefik.http.routers.wordpress-router.tls.certresolver=letsencrypt"
-      - "traefik.http.services.wordpress-service.loadbalancer.server.port=80"
+      - db_data:/var/lib/mysql
+      - ./mariadb/custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
       retries: 5
-    networks:
-      - dokploy-network
 
-networks:
-  dokploy-network:
-    external: true
+  redis:
+    image: redis:8.2.1-alpine
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly no
+      --save ""
+      --maxmemory 32mb
+      --maxmemory-policy allkeys-lru
+      --requirepass {{DOKPLOY_REDIS_PASSWORD}}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a {{DOKPLOY_REDIS_PASSWORD}} ping | grep PONG || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  wordpress_data:
+  db_data:
+  nginx_cache:
