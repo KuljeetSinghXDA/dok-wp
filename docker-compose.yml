@@ -29,7 +29,7 @@ services:
 
   # Service 2: WordPress Application Server (PHP-FPM)
   wordpress:
-    image: wordpress:6.8.3-php8.4-fpm-alpine
+    image: wordpress:php8.4-fpm-alpine
     container_name: wordpress_app
     restart: unless-stopped
     environment:
@@ -75,6 +75,7 @@ volumes:
   wordpress_data:
 
   mariadb_data:
+
 
 
 
